@@ -1,0 +1,631 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imunolab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: uma coluna central (~760px) que troca de tela: início → quiz / flashcards / batalha. Placa de ELISA como motivo visual. */
+:root{
+  --bg:#f1f5f8; --surface:#ffffff; --surface2:#e8eef3; --ink:#122130; --muted:#586a7a; --line:#d3dde6;
+  --tmb:#2a4bd0; --tmb-soft:#dfe5ff; --stop:#e0a100; --stop-soft:#fff2c9;
+  --ok:#1d8656; --ok-soft:#dcf3e8; --bad:#c43348; --bad-soft:#fbe1e5;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c141e; --surface:#142131; --surface2:#1b2b3e; --ink:#e5edf4; --muted:#93a4b5; --line:#263a50;
+  --tmb:#869dff; --tmb-soft:#1f2c5c; --stop:#f3c335; --stop-soft:#3d3214;
+  --ok:#43c58b; --ok-soft:#123826; --bad:#ff7487; --bad-soft:#431b23; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c141e; --surface:#142131; --surface2:#1b2b3e; --ink:#e5edf4; --muted:#93a4b5; --line:#263a50;
+  --tmb:#869dff; --tmb-soft:#1f2c5c; --stop:#f3c335; --stop-soft:#3d3214;
+  --ok:#43c58b; --ok-soft:#123826; --bad:#ff7487; --bad-soft:#431b23; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding-block:20px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,.chip:focus-visible{outline:3px solid var(--tmb);outline-offset:2px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* topo */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}
+.back{background:none;border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px;color:var(--muted)}
+.back:hover{color:var(--ink);border-color:var(--muted)}
+
+/* início */
+.hero{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end;padding-block:12px 28px;border-bottom:1px solid var(--line)}
+.hero h1{font-size:clamp(44px,10vw,76px);font-weight:800;letter-spacing:-.03em}
+.hero h1 span{color:var(--tmb)}
+.hero p{margin:10px 0 0;color:var(--muted);max-width:46ch}
+.miniplate{display:grid;grid-template-columns:repeat(6,14px);gap:5px;padding:10px;border-radius:12px;background:var(--surface);border:1px solid var(--line)}
+.miniplate i{width:14px;height:14px;border-radius:50%;background:var(--surface2);border:1px solid var(--line)}
+.miniplate i.y{background:var(--stop);border-color:transparent}
+.miniplate i.b{background:var(--tmb);border-color:transparent;opacity:.85}
+@media (max-width:520px){.miniplate{display:none}.hero{grid-template-columns:1fr}}
+
+.section{margin-top:28px}
+.section-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.section-h h2{font-size:20px}
+.linkbtn{background:none;border:0;color:var(--tmb);font-size:14px;padding:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;display:flex;gap:6px;align-items:center;user-select:none}
+.chip b{font-family:var(--mono);font-size:12px}
+.chip[aria-pressed="true"]{background:var(--tmb);border-color:var(--tmb);color:#fff}
+:root[data-theme="dark"] .chip[aria-pressed="true"]{color:#0c141e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .chip[aria-pressed="true"]{color:#0c141e}}
+.hint{font-size:13px;color:var(--muted);margin-top:8px}
+
+.games{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:640px){.games{grid-template-columns:1fr}}
+.game{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:8px;min-width:0;transition:transform .15s,border-color .15s}
+.game:hover{transform:translateY(-2px);border-color:var(--tmb)}
+.game h3{font-size:22px}
+.game p{margin:0;color:var(--muted);font-size:14px}
+.game .rec{margin-top:auto;padding-top:8px;font-size:13px;color:var(--muted)}
+.game svg{width:44px;height:44px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stats div{background:var(--surface);padding:14px}
+.stats strong{display:block;font-family:var(--mono);font-size:24px;font-variant-numeric:tabular-nums}
+.weak{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.weak li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:baseline}
+.weak li span:first-child{flex:1;min-width:0}
+.weak .tag{font-family:var(--mono);font-size:12px;color:var(--bad);white-space:nowrap}
+.empty{color:var(--muted);font-size:14px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:14px;margin-top:12px}
+
+/* jogo comum */
+.hud{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hud .grp{display:flex;gap:18px;align-items:center}
+.hud .v{font-family:var(--mono);font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+.lives{display:flex;gap:4px;font-size:18px;color:var(--bad)}
+.lives .off{opacity:.2}
+.timer{height:6px;border-radius:6px;background:var(--surface2);overflow:hidden;margin-bottom:16px}
+.timer i{display:block;height:100%;background:var(--tmb);transition:width .1s linear}
+.timer i.low{background:var(--bad)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px}
+.qmeta{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}
+.q{font-family:var(--display);font-weight:700;font-size:clamp(19px,3.6vw,24px);line-height:1.25;margin:0 0 18px;text-wrap:pretty}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{display:flex;gap:12px;align-items:flex-start;text-align:left;background:var(--bg);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;line-height:1.35}
+.opt:hover:not(:disabled){border-color:var(--tmb)}
+.opt .k{font-family:var(--mono);font-size:12px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted);flex:none;margin-top:2px}
+.opt:disabled{cursor:default}
+.opt.right{background:var(--ok-soft);border-color:var(--ok)}
+.opt.wrong{background:var(--bad-soft);border-color:var(--bad)}
+.opt.dim{opacity:.55}
+.explain{margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--surface2);font-size:15px}
+.explain b{display:block;margin-bottom:4px}
+.explain.ok b{color:var(--ok)} .explain.bad b{color:var(--bad)}
+.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:12px 20px;font-weight:700;background:var(--tmb);color:#fff}
+:root[data-theme="dark"] .btn{color:#0c141e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn{color:#0c141e}}
+.btn.ghost{background:var(--surface2);color:var(--ink)}
+.btn.okb{background:var(--ok)} .btn.badb{background:var(--bad)}
+.combo{font-family:var(--mono);font-size:13px;padding:3px 8px;border-radius:999px;background:var(--stop-soft);color:var(--ink);border:1px solid var(--stop)}
+.combo[hidden]{display:none}
+
+/* placa do quiz */
+.plate{display:grid;grid-template-columns:repeat(15,1fr);gap:6px;margin-bottom:14px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.plate i{aspect-ratio:1;max-width:100%;border-radius:50%;background:var(--surface2);border:1.5px solid var(--line);transition:background .3s}
+.plate i.cur{border-color:var(--tmb);box-shadow:0 0 0 2px var(--tmb-soft)}
+.plate i.ok{background:var(--stop);border-color:var(--stop)}
+.plate i.bad{background:var(--bad-soft);border-color:var(--bad)}
+@media (max-width:480px){.plate{gap:4px;padding:8px}}
+
+/* fim */
+.result{text-align:center;padding:28px 22px}
+.result h2{font-size:34px;margin-bottom:6px}
+.result .big{font-family:var(--mono);font-size:56px;font-weight:700;color:var(--tmb);font-variant-numeric:tabular-nums;line-height:1.1;margin:10px 0}
+.result .new{display:inline-block;background:var(--stop-soft);border:1px solid var(--stop);border-radius:999px;padding:3px 12px;font-size:13px;font-weight:700}
+.review{text-align:left;margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.review div{border-left:3px solid var(--bad);padding:6px 0 6px 12px;font-size:14px}
+.review div p{margin:0}
+.review div p+p{color:var(--ok);margin-top:2px}
+
+/* flashcards */
+.boxes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
+.boxes div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center}
+.boxes div.on{border-color:var(--tmb);box-shadow:0 0 0 2px var(--tmb-soft)}
+.boxes strong{display:block;font-family:var(--mono);font-size:18px}
+.boxes span{font-size:11px;color:var(--muted)}
+.flip{perspective:1400px;cursor:pointer}
+.flip-in{position:relative;display:grid;transition:transform .5s;transform-style:preserve-3d}
+.flip.on .flip-in{transform:rotateY(180deg)}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;min-height:260px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.face.back{transform:rotateY(180deg)}
+.face .ans{font-family:var(--display);font-size:22px;font-weight:700;color:var(--tmb);line-height:1.25}
+.face .ex{color:var(--muted);font-size:15px}
+.tap{font-size:13px;color:var(--muted);text-align:center}
+.togg{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.flip-in{transition:none}}
+
+/* batalha */
+.arena{position:relative;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;background:linear-gradient(180deg,var(--surface) 0%,var(--surface2) 100%);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px;overflow:hidden;min-height:220px}
+.fighter{display:flex;flex-direction:column;gap:8px;align-items:center;min-width:0}
+.fighter .name{font-family:var(--display);font-weight:700;font-size:16px;text-align:center}
+.fighter .name em{font-style:italic}
+.hp{width:100%;max-width:220px;height:10px;border-radius:8px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.hp i{display:block;height:100%;background:var(--ok);transition:width .4s}
+.hp i.mid{background:var(--stop)} .hp i.low{background:var(--bad)}
+.hpn{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.sprite{width:min(150px,36vw);height:min(150px,36vw)}
+.sprite svg{width:100%;height:100%;overflow:visible}
+.hit{animation:hit .45s}
+@keyframes hit{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px) rotate(-4deg)}40%{transform:translateX(8px) rotate(4deg)}60%{transform:translateX(-5px)}80%{transform:translateX(4px)}}
+.bob{animation:bob 2.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-6px)}}
+.shot{position:absolute;left:22%;top:42%;font-family:var(--display);font-weight:800;font-size:34px;color:var(--tmb);pointer-events:none;animation:shot .5s ease-in forwards}
+@keyframes shot{from{transform:translateX(0) rotate(0)}to{transform:translateX(min(42vw,330px)) rotate(360deg);opacity:.3}}
+.zap{position:absolute;right:22%;top:42%;font-size:30px;color:var(--bad);pointer-events:none;animation:zap .5s ease-in forwards}
+@keyframes zap{to{transform:translateX(max(-42vw,-330px));opacity:.3}}
+.float{position:absolute;font-family:var(--mono);font-weight:700;font-size:22px;pointer-events:none;animation:up .9s forwards}
+@keyframes up{to{transform:translateY(-40px);opacity:0}}
+.stage{font-family:var(--mono);font-size:12px;color:var(--muted);position:absolute;top:10px;left:14px}
+@media (prefers-reduced-motion:reduce){.bob,.hit,.shot,.zap,.float{animation:none}.shot,.zap{display:none}}
+footer{margin-top:40px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app"></div>
+
+<script>
+/* ================= BANCO DE PERGUNTAS =================
+   Formato: [aula, pergunta, [CORRETA, errada, errada, errada], explicação]
+   A primeira alternativa é sempre a correta; a ordem é embaralhada no jogo. */
+const AULAS = {
+  1:"Imunologia no LAC", 2:"Controle de qualidade", 3:"Anticorpos como ferramentas",
+  4:"Precipitação, aglutinação e IF", 5:"Automação: RIA, ELISA, EIA, QL", 6:"Desempenho dos testes",
+  7:"Infecções congênitas e arboviroses", 8:"Sífilis, EBV, clamídia, CVV e VB", 9:"Herpes, HPV, HIV e MPOX"
+};
+const BANK = [
+// ---------- AULA 1
+[1,"Qual é a velocidade típica da resposta imune adaptativa?",["Lenta, cerca de 4–5 dias","Rápida, 0–4 horas","Imediata, em segundos","Cerca de 4–5 semanas"],"A imunidade inata responde em 0–4 h; a adaptativa é específica e mais lenta, cerca de 4–5 dias."],
+[1,"Qual subpopulação de T CD4+ induz respostas de células B e está ligada a alergia e asma?",["Th2","Th1","Th17","Treg"],"Th2 (induzida por IL-4 + IL-2; GATA-3) produz IL-4, IL-5, IL-13: imunidade contra parasitas extracelulares, alergia e asma."],
+[1,"Qual fator de transcrição caracteriza as células T reguladoras induzidas (iTreg)?",["Foxp3","T-bet","GATA-3","RORγt"],"iTreg: TGF-β + IL-2 → Foxp3/Stat5. T-bet é Th1, GATA-3 é Th2 e RORγt é Th17."],
+[1,"O perfil Th17 está associado principalmente à imunidade contra:",["Bactérias extracelulares e fungos","Patógenos intracelulares","Parasitas extracelulares e alergia","Imunotolerância e homeostasia"],"Th17 produz IL-17, IL-21, IL-22: imunidade contra bactérias extracelulares e fungos, além de respostas autoimunes."],
+[1,"A função do anticorpo de promover a fagocitose chama-se:",["Opsonização","Neutralização","ADCC","Desgranulação"],"Opsonização = o anticorpo 'marca' o alvo e promove a fagocitose. Neutralização impede a aderência de bactérias, toxinas ou vírus."],
+[1,"Na ADCC, qual receptor da célula NK reconhece os anticorpos ligados à célula-alvo?",["CD16 (receptor Fc)","CD4","CD28","CD21"],"Na citotoxicidade celular dependente de anticorpo, o CD16 (receptor Fc) da NK reconhece o Ac ligado; a ligação cruzada leva à desgranulação e apoptose do alvo."],
+[1,"Qual isotipo de imunoglobulina atravessa a placenta e chega ao feto?",["IgG","IgM","IgA","IgE"],"Só a IgG atravessa a placenta. A IgA dimérica fica nas secreções e a IgE nos tecidos/mastócitos."],
+[1,"Qual imunoglobulina é um pentâmero?",["IgM (cadeia μ)","IgG (cadeia γ)","IgA (cadeia α)","IgD (cadeia δ)"],"A IgM é pentamérica, unida pela cadeia J e pontes dissulfeto."],
+[1,"A ligação antígeno-anticorpo ocorre por:",["Forças não covalentes","Ligações covalentes","Ligações peptídicas","Pontes dissulfeto entre Ag e Ac"],"Forças eletrostáticas, pontes de hidrogênio, Van der Waals e forças hidrofóbicas — todas não covalentes."],
+[1,"Comparada à resposta primária, a resposta imune secundária é:",["Mais rápida, mais intensa (~100×) e duradoura","Mais lenta e de menor intensidade","Igual, só que mais duradoura","Mais rápida, mas de menor intensidade"],"Na reexposição ao mesmo antígeno, a resposta é muito mais rápida, intensa (~100 vezes) e duradoura."],
+[1,"Placas de Peyer, apêndice e tonsilas são exemplos de:",["MALT – tecido linfoide associado às mucosas","Órgãos linfoides primários","Progenitores mieloides","Linfonodos profundos"],"MALT: amígdalas (tonsilas palatinas), adenoides, tonsilas linguais, placas de Peyer e apêndice."],
+[1,"Nos primeiros 5–15 minutos após ativação via IgE, o mastócito libera:",["Grânulos: histamina, heparina, triptase","Lipídeos: PGD2, LTC4, PAF","Citocinas: IL-13, TNF-α, IL-8","Anticorpos IgE solúveis"],"5–15 min: grânulos. 10–30 min: lipídeos (PGD2, LTC4, PAF). Minutos a dias: citocinas e quimiocinas."],
+[1,"As células NK, linfócitos B e T derivam de qual progenitor?",["Progenitor linfoide comum","Progenitor mieloide comum","Megacariócito","Monócito"],"Do progenitor linfoide comum saem linfócitos B, T e NK. Do mieloide: neutrófilos, eosinófilos, basófilos, monócitos, mastócitos, plaquetas e hemácias."],
+// ---------- AULA 2
+[2,"Em qual fase ocorre a maior parte dos erros laboratoriais?",["Pré-analítica","Analítica","Pós-analítica","Igualmente nas três"],"Todos os estudos citados mostram maioria pré-analítica (53% a 75%)."],
+[2,"Exatidão é:",["O quanto o valor medido está próximo do valor verdadeiro","A reprodutibilidade do método","A capacidade de detectar o menor nível do analito","A frequência de resultados negativos corretos"],"Exatidão = proximidade do valor verdadeiro (confiança no método). Precisão = reprodutibilidade."],
+[2,"Precisão refere-se a:",["Reprodutibilidade do método","Proximidade do valor verdadeiro","Ausência de erro sistemático","Capacidade de detectar o analito"],"Precisão = os resultados se repetem (distribuição gaussiana estreita), mesmo que longe do valor real."],
+[2,"Na curva de Gauss, que porcentagem dos resultados fica dentro de ±2 DP da média?",["~95%","~68%","~99,7%","100%"],"±1 DP ≈ 68,3%; ±2 DP ≈ 95,4%; ±3 DP ≈ 99,7%."],
+[2,"No desenho do alvo, tiros bem agrupados, mas fora do centro, representam um método:",["Preciso e inexato","Exato e impreciso","Preciso e exato","Impreciso e inexato"],"Agrupado = preciso; fora do centro = inexato."],
+[2,"Qual erro não tem causa raiz identificável e alarga a base da curva de Gauss?",["Erro aleatório","Erro sistemático (bias)","Erro total permitido","Erro de calibração"],"O erro aleatório aumenta a imprecisão (DP/CV); direção e tamanho não podem ser previstos."],
+[2,"Para estimar o erro aleatório com 95% de probabilidade (unicaudal), multiplica-se o DP por:",["1,65","1,96","2,33","3,00"],"Erro aleatório = 1,65 × DP (ou 1,65 × CV%). Com 99%, usa-se 2,33."],
+[2,"Valores do controle do mesmo lado da média por 7 dias seguidos indicam:",["Erro sistemático (bias)","Erro aleatório","Funcionamento normal","Erro pós-analítico"],"Tendência ou 7 dias do mesmo lado = erro sistemático, mesmo sem ultrapassar limites. Ligado à calibração."],
+[2,"Qual é o tipo de erro mais frequente e mais fácil de descobrir e corrigir?",["Erro sistemático","Erro aleatório","Erro total","Erro pré-analítico de coleta"],"O sistemático decorre de problemas persistentes, tem direção definida e se relaciona com variações da média."],
+[2,"O erro total é calculado como:",["Bias + Z × imprecisão","Bias × DP","DP ÷ média × 100","Bias − erro aleatório"],"ET = Bias + 1,65 (ou 2,33) × DP (ou CV%). Ele deve ser menor que o ETP."],
+[2,"O Erro Total Permitido (ETP) é:",["A especificação do erro máximo aceitável para um analito","O erro encontrado pelo laboratório","A soma de todos os erros pré-analíticos","O desvio padrão do controle"],"ETP é a meta (o máximo aceitável); o erro total encontrado precisa ficar abaixo dele."],
+[2,"Na multirregra de CQ, a regra R₄s detecta principalmente:",["Imprecisão","Bias","Tendência de bias","Erro pré-analítico"],"1₃s: imprecisão ou bias; 2₂.₅s: bias; R₄s: imprecisão; 8₁.₅s: tendência de bias."],
+[2,"Qual componente da multirregra indica tendência de bias?",["8₁.₅s","R₄s","1₃s","1₂s"],"8 resultados seguidos além de 1,5 DP do mesmo lado = tendência de bias."],
+[2,"Qual o primeiro passo após um resultado de CQ inaceitável?",["Repetir o controle","Recalibrar o equipamento","Liberar os resultados dos pacientes","Trocar o lote de reagente"],"Sequência: repetir o controle → verificar instrumentos/reagentes → recalibrar → investigação técnica adicional."],
+[2,"Uma relação CVa/CVi de 0,50 corresponde a qual nível de desempenho?",["Desejável (11,8% de variabilidade adicionada)","Ótimo (3,1%)","Mínimo (25%)","Inaceitável (41,4%)"],"0,25 = ótimo (3,1%); 0,50 = desejável (11,8%); 0,75 = mínimo (25%)."],
+[2,"Qual gráfico plota os resultados do controle ao longo do tempo com limites de ±2 DP e ±3 DP?",["Levey-Jennings","Heidelberger","Curva ROC","Regressão linear"],"Levey-Jennings: média e limites de DP no eixo, dias no tempo. Heidelberger é a curva de precipitação."],
+// ---------- AULA 3
+[3,"Epítopo (determinante antigênico) é:",["A porção específica do antígeno que se liga ao anticorpo","O sítio do anticorpo que liga o antígeno","Uma molécula pequena incapaz de induzir resposta","A região constante da imunoglobulina"],"Todo antígeno precisa ter pelo menos um epítopo."],
+[3,"Sobre imunógenos e antígenos, é correto afirmar:",["Todo imunógeno é antígeno, mas nem todo antígeno é imunógeno","Todo antígeno é imunógeno","Imunógenos não têm epítopos","Haptenos são sempre imunógenos"],"Um antígeno pode se ligar ao Ac sem induzir resposta sozinho (ex.: haptenos)."],
+[3,"O determinante conformacional:",["É formado pela dobra da proteína e se perde na desnaturação","É uma sequência contínua de aminoácidos","Só aparece após a desnaturação","Fica sempre oculto na proteína"],"O conformacional depende da estrutura 3D; o linear é uma sequência contínua."],
+[3,"Afinidade é:",["A força entre um único determinante e um único sítio de combinação","A força total de ligação de Ac multivalentes","A capacidade de detectar baixas concentrações","O número de epítopos do antígeno"],"Afinidade = 1 epítopo × 1 sítio (Keq ~10⁴). Avidez = soma das afinidades."],
+[3,"Avidez é:",["A soma das afinidades de um Ac multivalente com um Ag de vários epítopos","A força de um único sítio com um único epítopo","A especificidade do anticorpo","A velocidade de produção do anticorpo"],"Avidez cresce com a valência: IgG bivalente ~10⁷; IgM pentamérica ~10¹¹."],
+[3,"Qual molécula tem a maior avidez (Keq ≈ 10¹¹)?",["IgM pentamérica (10 sítios)","IgG bivalente (2 sítios)","Fragmento Fab (1 sítio)","IgE monomérica"],"10 sítios de ligação → avidez muito alta."],
+[3,"Anticorpos monoclonais:",["Vêm de um único clone de plasmócito e reconhecem um só epítopo","Reconhecem vários epítopos do antígeno","São obtidos direto do soro do animal imunizado","Têm alta variabilidade entre lotes"],"Monoclonais são idênticos em estrutura, especificidade e afinidade, com pouca variação entre lotes."],
+[3,"Na tecnologia do hibridoma, os linfócitos do baço são fundidos com:",["Células de mieloma (imortais)","Hemácias","Bacteriófagos","Macrófagos"],"A fusão com mieloma gera células híbridas imortais que produzem o Ac indefinidamente."],
+[3,"Qual é uma desvantagem dos anticorpos monoclonais?",["São caros e podem ter reação cruzada com outro Ag que tenha o mesmo epítopo","Baixa especificidade","Alta variabilidade de lote para lote","Presença de anticorpos não específicos"],"As outras alternativas são vantagens invertidas: eles têm alta especificidade, homogeneidade e pouca variação."],
+[3,"A técnica de exibição em fago (phage display) produz:",["Anticorpos recombinantes","Anticorpos policlonais","Hibridomas","Antissoros animais"],"Fragmentos de Ac são construídos a partir de um repertório de genes V; ciclo: ligar → lavar → eluir → amplificar."],
+[3,"Contra um antígeno complexo, a avidez de um Ac policlonal comparada à de um monoclonal é:",["Maior","Menor","Igual","Nula"],"O policlonal reconhece vários epítopos ao mesmo tempo, somando forças de ligação."],
+[3,"O sítio combinatório do anticorpo corresponde a:",["Domínio hipervariável / CDR","Região da dobradiça (hinge)","Domínio CH3","Porção Fc"],"Fica na região variável (VH/VL), na extremidade N-terminal."],
+[3,"Como se purificam os Ac policlonais do antissoro?",["Cromatografia de afinidade com o Ag na fase estacionária","Fusão com mieloma","Eletroforese em agarose","Diluição seriada"],"Fluxo: imunizar → coletar sangue → centrifugar → antissoro → cromatografia de afinidade."],
+// ---------- AULA 4
+[4,"Na curva de Heidelberger, a formação máxima de precipitado ocorre na:",["Zona de equivalência","Pró-zona","Pós-zona","Zona de excesso de anticorpo"],"Na equivalência, a proporção Ag:Ac é ótima e forma a rede (lattice) máxima."],
+[4,"A zona de excesso de anticorpo na curva de precipitação é chamada:",["Pró-zona","Pós-zona","Zona de equivalência","Efeito hook"],"Pró-zona = excesso de Ac; pós-zona = excesso de Ag. Ambas formam pouco precipitado."],
+[4,"Na imunodifusão radial simples (Mancini), o diâmetro do anel é:",["Proporcional à concentração do Ag ou do Ac","Inversamente proporcional à concentração","Sempre fixo","Proporcional ao tempo de leitura apenas"],"Ac no gel e Ag no poço (ou vice-versa); método semiquantitativo."],
+[4,"A técnica de Ouchterlony (1947) é uma:",["Imunodifusão radial dupla","Imunodifusão radial simples","Nefelometria","Hemaglutinação"],"Ag e Ac em poços diferentes difundem-se um contra o outro e formam linhas de precipitação."],
+[4,"Qual método de precipitação é quantitativo?",["Nefelometria","Imunodifusão dupla","Western blotting","Imunoeletroforese"],"A nefelometria mede a luz dispersa, proporcional à quantidade de imunocomplexos."],
+[4,"O que a nefelometria mede?",["A luz dispersa pelos imunocomplexos","A radioatividade ligada","A cor do cromógeno","O diâmetro de um anel de precipitação"],"Uma fonte de luz incide na cubeta e detectores medem a luz dispersa em ângulos (0°, 30°, 90°)."],
+[4,"Na aglutinação reversa (indireta):",["Partículas revestidas com anticorpo detectam o antígeno da amostra","Partículas com antígeno detectam o anticorpo da amostra","Não há partículas","O resultado positivo é a ausência de aglutinação"],"Direta/passiva: partícula + Ag detecta Ac. Reversa/indireta: partícula + Ac detecta Ag."],
+[4,"No teste de gravidez por inibição da aglutinação, um resultado POSITIVO mostra:",["Ausência de aglutinação","Aglutinação intensa","Precipitado em linha","Fluorescência verde"],"O hCG da urina bloqueia o anti-hCG; as partículas com hCG não aglutinam."],
+[4,"Na titulação por hemaglutinação em microplaca, o título é:",["A maior diluição que ainda apresenta aglutinação (tapete)","A menor diluição com aglutinação","A diluição com botão no fundo","Sempre 1:2"],"Botão de hemácias no fundo = sem aglutinação. Tapete = aglutinação."],
+[4,"Quais são os principais fluorocromos usados na imunofluorescência?",["FITC (fluoresceína) e TRITC (rodamina)","HRP e fosfatase alcalina","¹²⁵I e ³H","TMB e OPD"],"FITC emite verde e TRITC emite vermelho quando excitados por UV."],
+[4,"A imunofluorescência indireta usa:",["Ac do paciente + conjugado anti-anticorpo marcado","Só um anticorpo já marcado","Hemácias revestidas","Partículas de látex"],"Esquema: Ag + Ac do paciente → lava → conjugado anti-Ac fluorescente → lava → leitura. Ex.: FTA-ABS, Chagas, toxo."],
+[4,"Na eletroforese sérica, um pico M (banda monoclonal) na região gama sugere:",["Mieloma múltiplo","Perfil normal","Doença celíaca","Infecção aguda por HIV"],"Perfil normal: albumina, α1, α2, β e γ. O pico M na região gama é típico do mieloma múltiplo."],
+[4,"A pesquisa de anti-endomísio por imunofluorescência indireta é usada no diagnóstico de:",["Doença celíaca","Sífilis","Lúpus","Toxoplasmose"],"A fluorescência do endomísio aparece no painel de IFI."],
+// ---------- AULA 5
+[5,"Por que os imunoensaios com conjugado marcado exigem uma etapa de separação?",["Para distinguir o imunocomplexo ligado do conjugado livre","Para aquecer a amostra","Para diluir o soro","Para formar a rede de precipitação"],"Separação B/F (ligado/livre) com fase sólida: tubos, placas, pérolas de poliestireno, partículas magnéticas."],
+[5,"Qual é o radioisótopo mais usado como marcador em RIA?",["¹²⁵I (meia-vida de 60 dias)","¹⁴C","³²P","¹³¹I"],"¹²⁵I: decaimento γ, meia-vida de 60 dias. ³H dura 12,3 anos, ¹⁴C 5.760 anos."],
+[5,"No RIA competitivo, quanto maior a concentração do analito na amostra:",["Menor a radioatividade ligada","Maior a radioatividade ligada","A radioatividade não muda","Maior a cor formada"],"O analito compete com o Ag marcado pelos sítios do Ac: curva inversa."],
+[5,"No IRMA (imunorradiométrico, sanduíche), o sinal é:",["Diretamente proporcional ao analito","Inversamente proporcional ao analito","Independente do analito","Zero quando há analito"],"Ensaio não competitivo: Ac de captura + Ag + Ac marcado → mais Ag, mais sinal."],
+[5,"No ELISA competitivo, a intensidade da cor é:",["Inversamente proporcional à concentração do Ag","Diretamente proporcional à concentração do Ag","Sempre máxima","Independente do Ag"],"Quanto mais Ag da amostra, menos Ag marcado se liga, logo menos cor."],
+[5,"No ELISA indireto, o conjugado (marcado com enzima) é:",["Um anti-anticorpo","O antígeno","O anticorpo de captura","O cromógeno"],"Poço com Ag → Ac do paciente → anti-Ac com enzima → substrato. Detecta anticorpos."],
+[5,"No ELISA sanduíche, o poço é revestido com:",["Anticorpo (de captura)","Antígeno","Substrato","Solução de paragem"],"Ac de captura → Ag da amostra → Ac marcado. Cor proporcional ao antígeno."],
+[5,"No ELISA, a enzima age no substrato, que oxida o cromógeno, que passa de:",["Incolor para colorido","Colorido para incolor","Fluorescente para opaco","Sólido para líquido"],"Depois vem a solução de paragem e a leitura em espectrofotômetro."],
+[5,"O EIA homogêneo:",["Dispensa lavagens e é menos sensível que o heterogêneo","Exige várias lavagens e é mais sensível","Usa radioisótopos","É sempre manual"],"Homogêneos são rápidos e simples, mas menos sensíveis."],
+[5,"O EMIT (enzyme-multiplied immunoassay technique) é um imunoensaio:",["Enzimático homogêneo, com modulação por impedimento estérico","Radioativo competitivo","De precipitação","Enzimático heterogêneo com lavagens"],"Conjugado: antígeno com lisozima ou G6PD."],
+[5,"Na quimioluminescência, os fótons emitidos são medidos por:",["Fotomultiplicador (PMT), em contagens por segundo (cps)","Contador gama","Microscópio de fluorescência","Leitura a olho nu"],"O PMT transforma a luz em impulsos elétricos; cps é proporcional à quantidade de antígeno."],
+[5,"Os imunoensaios enzimáticos foram desenvolvidos como alternativa:",["Aos radioisótopos","À citometria de fluxo","À PCR","À microscopia"],"Evitam os riscos e o descarte do material radioativo."],
+[5,"O EIA heterogêneo não competitivo de sanduíche com dois sítios é usado para determinar:",["Antígenos: hormônios, marcadores tumorais, proteínas plasmáticas","Somente autoanticorpos","Somente haptenos pequenos","Radioatividade"],"Para detectar anticorpos (HIV, HCV, HBV, autoanticorpos) usam-se ensaios indiretos."],
+// ---------- AULA 6
+[6,"Na tabela 2×2 (a = V+, b = F+, c = F−, d = V−), a sensibilidade é:",["a / (a + c)","d / (b + d)","a / (a + b)","d / (c + d)"],"Sensibilidade = verdadeiros positivos entre todos os doentes."],
+[6,"Na tabela 2×2 (a = V+, b = F+, c = F−, d = V−), a especificidade é:",["d / (b + d)","a / (a + c)","a / (a + b)","(a + d) / total"],"Especificidade = verdadeiros negativos entre todos os não doentes."],
+[6,"O valor preditivo positivo (VPP) é:",["a / (a + b)","d / (c + d)","a / (a + c)","S / (1 − E)"],"VPP = verdadeiros positivos entre todos os que deram positivo no teste."],
+[6,"A razão de verossimilhança positiva (RVP) é calculada por:",["S / (1 − E)","(1 − S) / E","E / (1 − S)","S × E"],"Quanto melhor o teste, maior a RVP. RVN = (1 − S)/E, que deve ser a menor possível."],
+[6,"Quanto melhor o teste, a razão de verossimilhança negativa (RVN) é:",["Menor","Maior","Igual a 1","Igual à sensibilidade"],"RVN = (1 − S)/E. Um teste bom tem poucos falsos negativos, então a RVN fica baixa."],
+[6,"A acurácia de um teste é:",["(V+ + V−) / total","V+ / doentes","V− / não doentes","F+ / total"],"É a proporção total de resultados corretos em relação ao padrão-ouro."],
+[6,"Entre 100 doentes, o teste deu 90 positivos e 10 negativos. Qual a sensibilidade?",["90%","10%","100%","Não dá para calcular"],"S = 90 / (90 + 10) = 90%."],
+[6,"Entre 200 não doentes, o teste deu 180 negativos. Qual a especificidade?",["90%","10%","18%","Depende da prevalência"],"E = 180 / 200 = 90%."],
+[6,"O efeito hook (gancho) caracteriza-se por:",["Valores falsamente baixos em ensaios de dois sítios com analito muito alto","Valores falsamente altos por anticorpo heterófilo","Excesso de anticorpo em aglutinação","Erro de calibração"],"Identifica-se diluindo o soro: o valor medido sobe muito."],
+[6,"Como identificar um efeito hook?",["Diluir o soro e dosar de novo: o valor sobe muito","Repetir sem diluir","Trocar por teste rápido","Aquecer a amostra"],"Com a diluição, o excesso de analito deixa de saturar os dois anticorpos do sanduíche."],
+[6,"O efeito pró-zona gera:",["Falso-negativo por excesso de anticorpo","Falso-positivo por excesso de antígeno","Falso-positivo por heterófilo","Resultado sempre correto"],"Pró-zona: muito Ac no soro em relação ao Ag do teste. É clássico no VDRL; resolve-se diluindo."],
+[6,"Soroconversão é:",["A passagem de negativo para positivo na pesquisa de anticorpos","A queda dos anticorpos após o tratamento","A troca de IgG por IgM","A conversão de soro em plasma"],"Ex.: duas amostras pareadas, a primeira negativa e a segunda positiva."],
+[6,"Anticorpo heterófilo é:",["Um anticorpo com afinidade por um antígeno diferente do seu específico","Um anticorpo monoclonal","Um autoanticorpo contra DNA","Um anticorpo produzido só no feto"],"Pode causar interferência e resultados falsos em imunoensaios."],
+[6,"Teste confirmatório é:",["Outra metodologia mais sensível e/ou mais específica","O mesmo teste repetido","Um teste de triagem barato","Qualquer teste rápido"],"Ex.: FTA-ABS confirmando um VDRL reagente."],
+[6,"Em geral, um teste mais sensível tende a ser:",["Menos específico","Mais específico","Igualmente específico","Mais barato"],"A relação é inversa: ao mexer no cut-off, ganha-se de um lado e perde-se do outro."],
+[6,"Cut-off de referência é:",["Um valor da distribuição que representa um ponto de decisão clínica","O valor máximo que o aparelho lê","O desvio padrão do controle","A média dos doentes"],"Exemplo da aula: abaixo de 10% ou acima de 95%."],
+// ---------- AULA 7
+[7,"Na sigla STORCH, a letra O significa:",["Outros agentes (parvovírus B19, VZV, HIV, HBV etc.)","Oncovírus","Oropouche","Orthopoxvirus"],"S sífilis, T toxoplasmose, O outros, R rubéola, C citomegalovírus, H herpes simples."],
+[7,"Toda infecção congênita é também uma infecção:",["Vertical","Hospitalar","Zoonótica","Sexualmente transmissível"],"Vertical inclui o período embrionário/fetal (congênita), o parto e o pós-natal."],
+[7,"O citomegalovírus é:",["Vírus DNA, HHV-5, família Herpesviridae","Vírus RNA da família Togaviridae","Protozoário da classe Sporozoa","Vírus RNA, HHV-4"],"Tem latência: nunca é eliminado e reativa na imunossupressão."],
+[7,"Quando a gestante deve ser testada para sífilis (MS, 2022)?",["1ª consulta, início do 3º trimestre (28ª semana) e no parto/aborto","Só na 1ª consulta","Só no parto","Da 35ª à 37ª semana"],"O teste no parto é feito independentemente de exames anteriores. O HIV segue o mesmo esquema."],
+[7,"Quando se pesquisa o estreptococo do grupo B na gestante?",["Da 35ª à 37ª semana, com swab vaginal e endoanal","Na 1ª consulta","No 1º trimestre","Só se houver sintomas"],"Hepatite C: apenas 1ª consulta. Gonorreia/clamídia: 1ª consulta em gestantes ≤ 30 anos."],
+[7,"Qual é o hospedeiro definitivo do Toxoplasma gondii?",["O gato e outros felídeos","O ser humano","O boi","O mosquito Aedes"],"Homem e mamíferos não felinos são hospedeiros intermediários."],
+[7,"Na toxoplasmose, IgG de ALTA avidez no 1º trimestre indica:",["Infecção ocorrida antes da gestação (mais de 12–16 semanas)","Infecção recente com risco fetal","Vacinação recente","Falso-positivo"],"Baixa avidez ou resultado indeterminado sugerem infecção recente e risco para o feto."],
+[7,"Por que a IgM da toxoplasmose não deve ser o único marcador de infecção aguda?",["Pode persistir 18 meses ou mais (IgM residual)","Nunca aparece na fase aguda","Atravessa a placenta","Só aparece após 6 meses"],"A IgM surge 5–14 dias após a infecção, mas pode durar muito tempo."],
+[7,"Na toxoplasmose congênita, encontrar IgM ou IgA no recém-nascido:",["Confirma o caso, porque esses anticorpos maternos não atravessam a placenta","Não tem valor, porque vêm da mãe","Descarta a infecção","Indica só vacinação"],"A IgG materna atravessa; por isso acompanha-se a evolução dos títulos de IgG no 1º ano."],
+[7,"Na toxoplasmose gestacional, a IgA:",["Aparece após 14 dias, dura 3–6 meses e apoia o diagnóstico de infecção aguda","Persiste por toda a vida","Indica infecção antiga","Atravessa a placenta"],"Detectável em cerca de 80% dos casos; útil também para identificar a infecção congênita."],
+[7,"Sem teste de avidez, como confirmar a infecção por soroconversão?",["Duas amostras com intervalo de 2–4 semanas: IgG sobe","Uma amostra única de IgM","Duas amostras com 6 meses de intervalo","PCR de urina materna"],"Elevação da IgG confirma a infecção; diminuição da IgM confirma infecção aguda recente."],
+[7,"O vírus da rubéola é, segundo a aula:",["Vírus RNA, gênero Rubivirus, família Togaviridae","Vírus DNA da família Herpesviridae","Arbovírus da família Flaviviridae","Vírus DNA não envelopado"],"Transmissão por secreções nasofaríngeas; incubação de 14–21 dias."],
+[7,"Após a vacinação contra rubéola, IgG acima de 10 UA/mL indica:",["Soroconversão e proteção duradoura","Infecção aguda","Falha vacinal","Suscetibilidade"],"Ausência de IgG = suscetível à doença."],
+[7,"Gestante com sintomas de rubéola, coleta entre o 1º e o 4º dia: IgM negativa e IgG positiva. Conduta:",["Descartar o caso","Confirmar o caso","Colher 2ª amostra","Repetir IgM em 6 meses"],"Se IgM e IgG forem negativas nesse período, colhe-se 2ª amostra 7–21 dias depois."],
+[7,"Diante de IgM positiva para rubéola, o que fazer se houver suspeita de falso-positivo (ex.: fator reumatoide)?",["Teste de imunocaptura para IgM","Confirmar o caso direto","Teste de gravidez","VDRL"],"Fator reumatoide, parvovírus B19 e Epstein-Barr podem dar IgM falso-positiva."],
+[7,"No algoritmo para Zika/Dengue/Chikungunya, o teste molecular é indicado:",["Com menos de 7 dias de sintomas","Só após 30 dias","Só em assintomáticos","Nunca na fase aguda"],"Anticorpos (IgM) a partir de ≥ 4 dias de sintomas."],
+[7,"Qual o perímetro cefálico ao nascer que caracteriza microcefalia, segundo a aula?",["32 cm ou menos","35–36 cm","Acima de 33 cm","40 cm"],"O perímetro médio ao nascer é de 35/36 cm."],
+[7,"O vírus Oropouche é transmitido principalmente por:",["Culicoides paraensis (maruim / mosquito-pólvora)","Aedes aegypti","Haemagogus","Carrapatos"],"Gênero Orthobunyavirus; há casos de transmissão vertical e óbitos."],
+[7,"O vírus Mayaro é relacionado genética e antigenicamente a qual vírus?",["Chikungunya (Alphavirus, Togaviridae)","Zika","Dengue","Oropouche"],"Vetores silvestres, principalmente Haemagogus; zoonose em que o homem é hospedeiro acidental."],
+[7,"Se o HOMEM teve Zika, quanto tempo o casal deve aguardar para a concepção?",["Até 3 meses","Até 2 meses","1 semana","1 ano"],"Se foi a mulher a infectada: até 2 meses."],
+// ---------- AULA 8
+[8,"O VDRL é um teste:",["Não treponêmico, de triagem, por microfloculação com cardiolipina","Treponêmico confirmatório","De imunofluorescência indireta","Molecular"],"Antígeno: cardiolipina + colesterol + lecitina. Resultado semiquantitativo e de baixo custo."],
+[8,"O VDRL detecta:",["Anticorpos 'reaginas', não específicos para o T. pallidum","Anticorpos específicos anti-T. pallidum","O DNA do treponema","O antígeno p24"],"Por isso há reações cruzadas: viroses, doenças autoimunes, malária, idosos, doença de Lyme."],
+[8,"No RPR, o carvão é adicionado para:",["Permitir a leitura a olho nu","Inativar a amostra","Estabilizar a suspensão","Absorver anticorpos inespecíficos"],"Cloreto de colina dispensa a inativação; EDTA aumenta a estabilidade. No TRUST, quem faz isso é o vermelho de toluidina."],
+[8,"No FTA-ABS, a absorção com Treponema de Reiter serve para:",["Remover Ac inespecíficos e evitar fluorescência inespecífica","Aumentar a floculação","Marcar o antígeno","Inativar o complemento"],"FTA-ABS é imunofluorescência indireta e o padrão-ouro entre os treponêmicos."],
+[8,"Um FTA-ABS positivo significa:",["Cicatriz sorológica para toda a vida","Infecção sempre ativa","Falso-positivo","Cura confirmada"],"Quando negativo, descarta sífilis. Para acompanhar o tratamento, usa-se o VDRL."],
+[8,"Qual teste treponêmico é o primeiro a ficar reagente após a infecção?",["FTA-ABS","VDRL","RPR","TP-HA"],"É útil na sífilis primária com cancro duro com mais de 10 dias de evolução."],
+[8,"A lesão típica da sífilis primária é:",["Cancro duro (protossifiloma)","Roséola","Goma sifilítica","Condiloma acuminado"],"A secundária traz roséola, pápulas e adenopatia. A terciária traz neurossífilis e gomas."],
+[8,"A sífilis congênita é transmitida por via hematogênica a partir de:",["Do 4º–5º mês gestacional","Da 1ª semana","Só no parto","Do 9º mês"],"Sífilis congênita tardia é a que dá sintomas após 2 anos de idade."],
+[8,"O vírus Epstein-Barr (EBV) é:",["HHV-4, subfamília gama","HHV-5, subfamília beta","HHV-3, subfamília alfa","HHV-8, subfamília alfa"],"Transmitido pela saliva ('doença do beijo') e fica latente por toda a vida."],
+[8,"Por qual receptor o EBV infecta o linfócito B?",["CD21","CD4","CD16","CD8"],"A infecção primária ocorre no epitélio das tonsilas e depois atinge o linfócito B via CD21."],
+[8,"Perfil EBV: VCA-IgM negativo, VCA-IgG positivo e EBNA-1 IgG positivo. Interpretação:",["Infecção passada remota","Nunca infectado","Infecção primária atual","Mononucleose aguda"],"O anti-EBNA-1 surge tarde; na infecção primária atual ele é negativo."],
+[8,"Na mononucleose infecciosa aguda, qual anticorpo costuma ser NEGATIVO?",["EBNA-1 IgG","VCA-IgM","VCA-IgG","Anticorpos heterófilos"],"Na mononucleose, heterófilos, VCA-IgM, VCA-IgG e EA são positivos; EBNA-1 ainda não."],
+[8,"Chlamydia trachomatis é uma bactéria:",["Gram-negativa, intracelular obrigatória","Gram-positiva, extracelular","Sem parede, da classe Mollicutes","Espiroqueta"],"Possui DNA e RNA e sintetiza suas próprias proteínas, mas só vive dentro de células."],
+[8,"No ciclo da Chlamydia, a forma infectante é:",["O corpo elementar","O corpo reticulado","A hifa","O cisto"],"O corpo elementar entra na célula, vira corpo reticulado (que se divide) e depois volta a ser corpo elementar."],
+[8,"O que diferencia C. trachomatis de C. psittaci e C. pneumoniae?",["É suscetível às sulfas e tem inclusão positiva para glicogênio","É resistente às sulfas","Tem corpo elementar piriforme","Não causa doença humana"],"As duas Chlamydophila são resistentes às sulfas e negativas para glicogênio."],
+[8,"Qual técnica de detecção direta da C. trachomatis tem a maior sensibilidade (~90%) na tabela da aula?",["PCR","Cultura celular","EIA","DFA"],"A cultura tem 100% de especificidade e é a única que mostra viabilidade, mas a sensibilidade é de 70–85%."],
+[8,"Na triagem por Gram para Ureaplasma/Mycoplasma na secreção vaginal, sugere inflamação:",["> 20 PMN por campo","> 5 PMN por campo","Qualquer leucócito","Ausência de lactobacilos"],"Na secreção uretral o limite é > 5 PMN por campo. O diagnóstico é feito por PCR multiplex."],
+[8,"Qual é a 1ª causa de infecção genital em mulheres em idade reprodutiva?",["Vaginose bacteriana","Candidíase vulvovaginal","Clamídia","HPV"],"A candidíase vulvovaginal é a 2ª causa."],
+[8,"A candidíase vulvovaginal recorrente é definida por:",["Mais de 4 episódios ao ano","2 episódios na vida","1 episódio por mês por 2 meses","Qualquer episódio com hifas"],"Atinge 5–10% das mulheres; 70–75% terão ao menos um episódio na vida."],
+[8,"Para Candida krusei, qual tratamento NÃO deve ser usado?",["Fluconazol","Clotrimazol tópico","Nistatina","Ácido bórico"],"C. krusei é intrinsecamente resistente ao fluconazol. Para C. glabrata: ácido bórico ou nistatina."],
+[8,"Os Lactobacillus mantêm o pH vaginal:",["Abaixo de 4,5","Acima de 7","Entre 6 e 7","Exatamente 5,5"],"Produzem ácido lático, H₂O₂, bacteriocinas e inibem a formação de biofilme."],
+[8,"Índice de Nugent entre 7 e 10 pontos indica:",["Sugestivo de vaginose bacteriana","Microbiota normal","Microbiota intermediária","Candidíase"],"0–3 = normal; 4–6 = intermediária / disbiose; 7–10 = VB."],
+[8,"A 'célula-guia' (clue cell) é:",["Uma célula epitelial recoberta por cocobacilos (Gardnerella)","Um leucócito com diplococos","Uma levedura em brotamento","Um coilócito"],"É achado típico de vaginose bacteriana."],
+[8,"Qual é o tratamento de vaginose bacteriana citado na aula?",["Metronidazol 0,75% ou clindamicina 2%","Fluconazol","Aciclovir","Penicilina benzatina"],"Associar a ruptura do biofilme, antibiótico oral e vaginal e probióticos."],
+// ---------- AULA 9
+[9,"O HHV-3 é o:",["Vírus varicela-zoster","Citomegalovírus","Vírus Epstein-Barr","Herpes simples tipo 1"],"Causa catapora e herpes-zoster (cobreiro); subfamília alfa."],
+[9,"O HHV-8 está associado a:",["Sarcoma de Kaposi","Mononucleose","Roséola infantum","Herpes labial"],"KSHV, subfamília gama. HHV-6 e HHV-7 causam roséola infantum (exantema súbito)."],
+[9,"Onde o HSV fica latente?",["No gânglio nervoso sensitivo: trigeminal (oral) ou sacral (genital)","No fígado","Nos linfócitos B","Na medula óssea"],"Na reativação, o vírus volta pelo nervo até a pele e forma vesículas."],
+[9,"Qual é o método padrão-ouro para o diagnóstico do herpes simples?",["PCR","Sorologia IgG","VDRL","Western blot"],"A sorologia tem reação cruzada (gG/gM). A localização da lesão não indica o tipo de vírus."],
+[9,"Os tipos de HPV 16 e 18 respondem por:",["70% dos casos de câncer de colo do útero","90% das verrugas genitais","100% dos cânceres de pênis","Nenhum câncer"],"Os tipos 6 e 11 respondem por 90% das verrugas genitais."],
+[9,"Os tipos de HPV 6 e 11 são:",["De baixo risco, responsáveis por 90% das verrugas genitais","De alto risco para câncer de colo","De risco intermediário","Não incluídos na vacina quadrivalente"],"A vacina quadrivalente cobre 6, 11, 16 e 18."],
+[9,"No rastreamento com DNA-HPV oncogênico (Conitec 2025), qual é a população-alvo e o intervalo?",["25 a 64 anos, a cada 5 anos","9 a 14 anos, anual","Acima de 65 anos, a cada 3 anos","Todas as idades, a cada 6 meses"],"Teste negativo: repetir em 5 anos."],
+[9,"Resultado do DNA-HPV: HPV 16 e/ou 18 detectado. Conduta:",["Colposcopia","Repetir em 5 anos","Citologia reflexa","Alta do rastreio"],"HPV de outros tipos → citologia reflexa; se ASC-US+, colposcopia; se não, repetir em 1 ano."],
+[9,"A captura híbrida para HPV:",["Detecta o vírus e separa em alto/baixo risco, sem identificar o tipo","Identifica exatamente o genótipo","É um exame citológico","Detecta anticorpos"],"A PCR em tempo real com genotipagem detecta e identifica o tipo."],
+[9,"A pesquisa imuno-histoquímica de p16/Ki-67 indica:",["Que o vírus está ativo e causando proliferação celular anormal","Infecção passada curada","Vacinação prévia","Ausência de HPV"],"É um biomarcador usado junto da citologia."],
+[9,"A vacina nonavalente (Gardasil 9) acrescenta quais tipos aos da quadrivalente?",["31, 33, 45, 52 e 58","6, 11, 16 e 18","40, 41, 42, 43 e 44","26, 34, 46, 53 e 55"],"Indicada de 9 a 45 anos; 2 doses de 9 a 14 anos e 3 doses a partir dos 15."],
+[9,"A vacina contra HPV é feita com:",["VLP da proteína L1 recombinante","Vírus vivo atenuado","Vírus inativado inteiro","DNA viral"],"A VLP parece o vírus, mas não tem material genético: gera IgG neutralizante sem causar doença."],
+[9,"Qual é o PRIMEIRO marcador a surgir no sangue na infecção pelo HIV?",["RNA viral","Antígeno p24","IgM","IgG"],"Ordem: RNA (~1 semana) → p24 (2–4 semanas) → IgM (3–5 semanas) → IgG (a partir de ~4 semanas)."],
+[9,"O ELISA de 4ª geração para HIV detecta:",["Antígeno p24 e anticorpos, com janela de ~15 dias","Apenas IgG, com janela de 6–8 semanas","IgG e IgM, com janela de 22–25 dias","Só o RNA viral"],"3ª geração: IgG + IgM (22–25 dias). 2ª: IgG (28–30 dias). 1ª: IgG (6–8 semanas)."],
+[9,"No fluxograma 3 de HIV (IE 4ª geração + teste molecular), a amostra é reagente se a carga viral for:",["≥ 5.000 cópias/mL","≥ 50 cópias/mL","≥ 200 cópias/mL","Qualquer valor detectável"],"Abaixo disso, faz-se Western blot, imunoblot ou imunoblot rápido."],
+[9,"No fluxograma 1 de HIV com testes rápidos, usam-se:",["Dois TR de fabricantes diferentes na mesma amostra","Dois TR do mesmo fabricante","Um TR e um Western blot","Um TR repetido 3 vezes"],"Se houver discordância pela primeira vez, repete-se o fluxograma; na segunda, colhe-se sangue venoso."],
+[9,"A proteína p24 do HIV é:",["A proteína do capsídeo (cerne), codificada pelo gene gag","Uma glicoproteína do envelope","A transcriptase reversa","A integrase"],"gag → p55 → p17 (matriz), p24 (capsídeo). pol → enzimas. env → gp160 → gp120 + gp41."],
+[9,"As glicoproteínas gp120 e gp41 do HIV são codificadas pelo gene:",["env","gag","pol","nef"],"A gp120 se liga ao CD4 e ao correceptor; a gp41 faz a fusão das membranas."],
+[9,"Quando é indicada a genotipagem do HIV-1?",["Falha terapêutica, elevação da carga viral > 0,5 log ou gravidez","Em todo teste rápido reagente","Só para contar CD4","Para diagnosticar a infecção aguda"],"Ela identifica mutações responsáveis pela resistência aos antirretrovirais."],
+[9,"Na fase de AIDS, a contagem de linfócitos T CD4 cai abaixo de:",["200 células/mm³","1.000 células/mm³","500 células/mm³","50 células/mm³"],"A contagem de CD4/CD8 é feita por citometria de fluxo."],
+[9,"Como é feito o diagnóstico de MPOX?",["RT-PCR da secreção das lesões ou crostas","Sorologia IgM","Teste rápido de antígeno","Cultura em ágar"],"O teste rápido mostrado na aula não está disponível no Brasil."],
+[9,"O vírus da MPOX pertence ao gênero:",["Orthopoxvirus","Orthobunyavirus","Alphavirus","Lentivirus"],"Zoonose; incubação de 3 a 16 dias (até 21)."],
+[9,"A vacina contra MPOX (Jynneos) é:",["MVA-BN atenuado, não replicante, em 2 doses com 28 dias de intervalo","Vírus vivo replicante em dose única","VLP de proteína L1","Recombinante com reforço anual"],"Não é recomendada para gestantes, menores de 18 anos ou quem tem MPOX ativa."],
+[9,"A vacina recombinante contra herpes-zoster (Shingrix) difere da Zostavax por:",["Usar fragmentos não infecciosos do vírus em vez de vírus vivo atenuado","Ser de dose única","Ser indicada só para crianças","Conter o vírus HSV-1"],"Indicada para maiores de 50 anos e imunossuprimidos, em 2 doses."],
+];
+
+/* ================= ESTADO / ARMAZENAMENTO ================= */
+const KEY="imunolab-v1";
+function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return "q"+(h>>>0).toString(36)}
+const Q = BANK.map(([aula,q,o,e])=>({id:hash(q),aula,q,o,e}));
+const QBY = Object.fromEntries(Q.map(x=>[x.id,x]));
+function load(){try{const d=JSON.parse(localStorage.getItem(KEY)||"{}");return {stats:d.stats||{},boxes:d.boxes||{},best:d.best||{},aulas:d.aulas||[1,2,3,4,5,6,7,8,9]}}catch(e){return {stats:{},boxes:{},best:{},aulas:[1,2,3,4,5,6,7,8,9]}}}
+let S = load();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function mark(id,ok){const s=S.stats[id]||(S.stats[id]={r:0,w:0});ok?s.r++:s.w++;save()}
+const pool=()=>Q.filter(x=>S.aulas.includes(x.aula));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const $=s=>document.querySelector(s);
+const app=$("#app");
+let cleanup=()=>{};
+function view(html){cleanup();cleanup=()=>{};app.innerHTML=html;window.scrollTo(0,0)}
+function topbar(title){return `<div class="top"><button class="back" data-go="home">← Início</button><span class="label">${title}</span></div>`}
+app.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g){({home,quiz:startQuiz,flash:startFlash,battle:startBattle})[g.dataset.go]()}});
+
+/* ================= ÍCONES ================= */
+const ICON={
+ quiz:`<svg viewBox="0 0 44 44"><g fill="none" stroke="var(--tmb)" stroke-width="2"><circle cx="10" cy="12" r="6"/><circle cx="22" cy="12" r="6"/><circle cx="34" cy="12" r="6"/><circle cx="10" cy="28" r="6"/><circle cx="22" cy="28" r="6"/><circle cx="34" cy="28" r="6"/></g><circle cx="10" cy="12" r="5" fill="var(--stop)"/><circle cx="22" cy="12" r="5" fill="var(--stop)"/><circle cx="10" cy="28" r="5" fill="var(--stop)"/></svg>`,
+ flash:`<svg viewBox="0 0 44 44"><rect x="8" y="10" width="26" height="20" rx="3" fill="var(--surface2)" stroke="var(--line)" stroke-width="2"/><rect x="12" y="14" width="26" height="20" rx="3" fill="var(--surface)" stroke="var(--tmb)" stroke-width="2"/><path d="M18 24h14M18 28h9" stroke="var(--tmb)" stroke-width="2" stroke-linecap="round"/></svg>`,
+ battle:`<svg viewBox="0 0 44 44"><path d="M22 38V24L12 12M22 24l10-12" stroke="var(--tmb)" stroke-width="4" stroke-linecap="round" fill="none"/><circle cx="12" cy="12" r="3" fill="var(--stop)"/><circle cx="32" cy="12" r="3" fill="var(--stop)"/></svg>`
+};
+
+/* ================= INÍCIO ================= */
+function home(){
+  const tot=Object.values(S.stats).reduce((a,s)=>({r:a.r+s.r,w:a.w+s.w}),{r:0,w:0});
+  const n=tot.r+tot.w, pct=n?Math.round(100*tot.r/n):0;
+  const seen=Object.keys(S.stats).filter(id=>QBY[id]).length;
+  const weak=Object.entries(S.stats).filter(([id,s])=>QBY[id]&&s.w>0).sort((a,b)=>(b[1].w-b[1].r/2)-(a[1].w-a[1].r/2)).slice(0,5);
+  const mp=Array.from({length:24},(_,i)=>`<i class="${[1,2,4,7,8,9,13,15,16,20,22].includes(i)?"y":[3,10,19].includes(i)?"b":""}"></i>`).join("");
+  view(`
+  <header class="hero">
+    <div>
+      <div class="label">Diagnóstico Laboratorial em Imunologia Clínica</div>
+      <h1>Imuno<span>lab</span></h1>
+      <p>Três jogos com ${Q.length} perguntas tiradas da apostila das Aulas 1 a 9. O que você errar aparece mais vezes.</p>
+    </div>
+    <div class="miniplate" aria-hidden="true">${mp}</div>
+  </header>
+
+  <section class="section">
+    <div class="section-h"><h2>Quais aulas entram?</h2><button class="linkbtn" id="all">${S.aulas.length===9?"Limpar":"Marcar todas"}</button></div>
+    <div class="chips">${Object.entries(AULAS).map(([k,v])=>{const c=Q.filter(x=>x.aula==k).length;return `<button class="chip" data-aula="${k}" aria-pressed="${S.aulas.includes(+k)}"><b>${k}</b>${v} <span class="mono" style="opacity:.6">${c}</span></button>`}).join("")}</div>
+    <p class="hint" id="poolinfo">${pool().length} perguntas selecionadas.</p>
+  </section>
+
+  <section class="section">
+    <div class="section-h"><h2>Escolha o jogo</h2></div>
+    <div class="games">
+      <button class="game" data-go="quiz">${ICON.quiz}<h3>Quiz</h3><p>15 perguntas, 20 segundos cada e 3 vidas. Acertos seguidos multiplicam os pontos.</p><span class="rec">Recorde: <b class="mono">${S.best.quiz||0}</b> pts</span></button>
+      <button class="game" data-go="flash">${ICON.flash}<h3>Flashcards</h3><p>Vire a carta e diga se sabia. Cartas que você erra voltam para a caixa 1 e aparecem mais.</p><span class="rec">Dominadas: <b class="mono">${Object.entries(S.boxes).filter(([id,b])=>QBY[id]&&b>=5).length}</b> / ${Q.length}</span></button>
+      <button class="game" data-go="battle">${ICON.battle}<h3>Batalha</h3><p>Seus anticorpos contra 5 patógenos. Acertou, ataca. Errou, toma dano. Resposta rápida é crítico.</p><span class="rec">Recorde: <b class="mono">${S.best.battle||0}</b> de 5 derrotados</span></button>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-h"><h2>Seu desempenho</h2>${n?`<button class="linkbtn" id="reset">Zerar progresso</button>`:""}</div>
+    <div class="stats">
+      <div><span class="label">Respostas</span><strong>${n}</strong></div>
+      <div><span class="label">Acerto</span><strong>${pct}%</strong></div>
+      <div><span class="label">Perguntas vistas</span><strong>${seen}<span style="font-size:14px;color:var(--muted)">/${Q.length}</span></strong></div>
+    </div>
+    ${weak.length?`<h3 style="font-size:16px;margin-top:20px">Perguntas que você mais erra</h3><ul class="weak">${weak.map(([id,s])=>`<li><span>${esc(QBY[id].q)}<br><span style="color:var(--ok);font-size:14px">→ ${esc(QBY[id].o[0])}</span></span><span class="tag">${s.w}× erro</span></li>`).join("")}</ul>`
+      :`<p class="empty">Ainda sem dados. Jogue uma rodada e as perguntas que você errar aparecem aqui.</p>`}
+    <div id="confirm"></div>
+  </section>
+  <footer><span>Baseado na apostila da Profa. Yanna Nóbrega · Aulas 1–9</span><span>Progresso salvo neste navegador</span></footer>`);
+  app.querySelectorAll("[data-aula]").forEach(b=>b.onclick=()=>{const k=+b.dataset.aula;S.aulas=S.aulas.includes(k)?S.aulas.filter(x=>x!==k):[...S.aulas,k].sort();if(!S.aulas.length)S.aulas=[k];save();home()});
+  $("#all").onclick=()=>{S.aulas=S.aulas.length===9?[1]:[1,2,3,4,5,6,7,8,9];save();home()};
+  const r=$("#reset");if(r)r.onclick=()=>{$("#confirm").innerHTML=`<div class="empty" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="flex:1">Apagar estatísticas, caixas dos flashcards e recordes?</span><button class="btn badb" id="yes">Apagar</button><button class="btn ghost" id="no">Cancelar</button></div>`;$("#yes").onclick=()=>{S={stats:{},boxes:{},best:{},aulas:S.aulas};save();home()};$("#no").onclick=()=>$("#confirm").innerHTML=""};
+}
+
+/* ================= PERGUNTA (compartilhada por quiz e batalha) ================= */
+function pickWeighted(list,n){ // prioriza perguntas erradas e nunca vistas
+  const w=list.map(x=>{const s=S.stats[x.id];const base=!s?3:1+s.w*2-Math.min(s.r,3)*0.3;return {x,k:Math.random()**(1/Math.max(.3,base))}});
+  return w.sort((a,b)=>b.k-a.k).slice(0,n).map(o=>o.x);
+}
+function renderQ(el,item,{meta,onAnswer,timer}){
+  const opts=shuffle(item.o.map((t,i)=>({t,ok:i===0})));
+  el.innerHTML=`<div class="card">
+    <div class="qmeta"><span class="label">Aula ${item.aula} · ${AULAS[item.aula]}</span><span class="label">${meta||""}</span></div>
+    <p class="q">${esc(item.q)}</p>
+    <div class="opts">${opts.map((o,i)=>`<button class="opt" data-i="${i}"><span class="k">${i+1}</span><span>${esc(o.t)}</span></button>`).join("")}</div>
+    <div id="after"></div></div>`;
+  let done=false;
+  const btns=[...el.querySelectorAll(".opt")];
+  function answer(i){
+    if(done)return;done=true;
+    const ok=i>=0&&opts[i].ok;
+    btns.forEach((b,j)=>{b.disabled=true;if(opts[j].ok)b.classList.add("right");else if(j===i)b.classList.add("wrong");else b.classList.add("dim")});
+    mark(item.id,ok);
+    el.querySelector("#after").innerHTML=`<div class="explain ${ok?"ok":"bad"}"><b>${ok?"Correto!":i<0?"Tempo esgotado.":"Não foi dessa vez."}</b>${esc(item.e)}</div>`;
+    onAnswer(ok,i<0);
+  }
+  btns.forEach((b,i)=>b.onclick=()=>answer(i));
+  return {answer,isDone:()=>done,opts};
+}
+function keyHandler(fn){const h=e=>{if(e.target.closest("input,textarea"))return;fn(e)};document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h)}
+
+/* ================= QUIZ ================= */
+function startQuiz(){
+  const list=pickWeighted(pool(),15);
+  const st={i:0,lives:3,score:0,streak:0,best:0,res:[],wrong:[]};
+  const T=20;
+  view(`${topbar("Quiz · leitura em 450 nm")}
+    <div class="hud"><div class="grp"><div><div class="label">Pontos</div><div class="v" id="sc">0</div></div><span class="combo" id="cb" hidden></span></div>
+    <div class="lives" id="lv" aria-label="vidas"></div></div>
+    <div class="plate" id="pl" aria-hidden="true"></div>
+    <div class="timer"><i id="tm" style="width:100%"></i></div>
+    <div id="qa"></div>`);
+  let tick=null,cur=null,left=T;
+  const stop=()=>{clearInterval(tick);tick=null};
+  const unkey=keyHandler(e=>{
+    if(!cur)return;
+    if(!cur.isDone()&&/^[1-4]$/.test(e.key))cur.answer(+e.key-1);
+    else if(cur.isDone()&&(e.key==="Enter"||e.key===" ")){e.preventDefault();$("#nx")?.click()}
+  });
+  cleanup=()=>{stop();unkey()};
+  function hud(){
+    $("#sc").textContent=st.score;
+    $("#lv").innerHTML=[0,1,2].map(i=>`<span class="${i<st.lives?"":"off"}">♥</span>`).join("");
+    const m=mult();const cb=$("#cb");cb.hidden=m<=1;cb.textContent=`combo ×${m}`;
+    $("#pl").innerHTML=list.map((_,i)=>`<i class="${st.res[i]===true?"ok":st.res[i]===false?"bad":i===st.i?"cur":""}"></i>`).join("");
+  }
+  const mult=()=>Math.min(3,1+Math.floor(st.streak/3)*0.5);
+  function next(){
+    if(st.i>=list.length||st.lives<=0)return end();
+    hud();left=T;const bar=$("#tm");bar.style.width="100%";bar.classList.remove("low");
+    cur=renderQ($("#qa"),list[st.i],{meta:`${st.i+1} / ${list.length}`,onAnswer:(ok)=>{
+      stop();
+      if(ok){st.streak++;st.best=Math.max(st.best,st.streak);st.score+=Math.round((100+Math.ceil(left)*5)*mult())}
+      else{st.streak=0;st.lives--;st.wrong.push(list[st.i])}
+      st.res[st.i]=ok;st.i++;hud();
+      $("#after").insertAdjacentHTML("beforeend",`<div class="actions"><button class="btn" id="nx">${st.i>=list.length||st.lives<=0?"Ver resultado":"Próxima"} →</button></div>`);
+      $("#nx").onclick=next;$("#nx").focus({preventScroll:true});
+    }});
+    tick=setInterval(()=>{left-=.1;bar.style.width=Math.max(0,left/T*100)+"%";if(left<6)bar.classList.add("low");if(left<=0){stop();cur.answer(-1)}},100);
+  }
+  function end(){
+    stop();
+    const rec=st.score>(S.best.quiz||0);if(rec){S.best.quiz=st.score;save()}
+    const ok=st.res.filter(Boolean).length;
+    $("#qa").innerHTML=`<div class="card result">
+      <div class="label">${st.lives<=0?"Sem vidas":"Placa completa"}</div>
+      <h2>${ok} de ${st.res.length} acertos</h2>
+      <div class="big">${st.score}</div><div class="label">pontos · maior combo ${st.best}</div>
+      ${rec&&st.score>0?`<p><span class="new">Novo recorde!</span></p>`:""}
+      ${st.wrong.length?`<div class="review"><span class="label">Para revisar</span>${st.wrong.map(w=>`<div><p>${esc(w.q)}</p><p>→ ${esc(w.o[0])}</p></div>`).join("")}</div>`:""}
+      <div class="actions" style="justify-content:center"><button class="btn ghost" data-go="home">Início</button><button class="btn" data-go="quiz">Jogar de novo</button></div></div>`;
+    $(".timer").hidden=true;
+  }
+  next();
+}
+
+/* ================= FLASHCARDS ================= */
+function startFlash(onlyWeak){
+  const base=()=>{let p=pool();if(onlyWeak){const w=p.filter(x=>(S.stats[x.id]?.w||0)>0||(S.boxes[x.id]||1)===1&&S.boxes[x.id]);if(w.length)p=w}return p};
+  let last=null,item=null,flipped=false,done=0;
+  view(`${topbar("Flashcards · caixas de Leitner")}
+    <div class="boxes" id="bx"></div>
+    <div class="hud"><label class="togg"><input type="checkbox" id="ow" ${onlyWeak?"checked":""}> Só as que eu errei</label><span class="label" id="ct"></span></div>
+    <div id="fc"></div>`);
+  $("#ow").onchange=e=>startFlash(e.target.checked);
+  function boxes(){
+    const p=base();const c=[0,0,0,0,0];p.forEach(x=>c[(S.boxes[x.id]||1)-1]++);
+    const names=["Nova/errei","Vendo","Lembro","Firme","Dominada"];
+    $("#bx").innerHTML=c.map((n,i)=>`<div class="${item&&(S.boxes[item.id]||1)===i+1?"on":""}"><strong>${n}</strong><span>${i+1} · ${names[i]}</span></div>`).join("");
+    $("#ct").textContent=`${done} revisadas nesta sessão`;
+  }
+  function pick(){
+    const p=base().filter(x=>x!==last);const src=p.length?p:base();
+    const w=src.map(x=>{const b=S.boxes[x.id]||1;return {x,k:Math.random()**(1/2**(5-b))}});
+    return w.sort((a,b)=>b.k-a.k)[0].x;
+  }
+  function show(){
+    item=pick();last=item;flipped=false;boxes();
+    $("#fc").innerHTML=`<div class="flip" id="fl" tabindex="0" role="button" aria-label="Virar carta">
+      <div class="flip-in">
+        <div class="card face"><span class="label">Aula ${item.aula} · ${AULAS[item.aula]} · caixa ${S.boxes[item.id]||1}</span><p class="q" style="margin:0">${esc(item.q)}</p><p class="tap">Pense na resposta e toque para virar (ou espaço)</p></div>
+        <div class="card face back"><span class="label">Resposta</span><div class="ans">${esc(item.o[0])}</div><div class="ex">${esc(item.e)}</div></div>
+      </div></div>
+      <div class="actions" id="fa" hidden><button class="btn badb" id="no">Não sabia <span class="mono" style="opacity:.7">(1)</span></button><button class="btn okb" id="yes">Sabia <span class="mono" style="opacity:.7">(2)</span></button></div>`;
+    $("#fl").onclick=flip;
+    $("#no").onclick=()=>rate(false);$("#yes").onclick=()=>rate(true);
+  }
+  function flip(){flipped=!flipped;$("#fl").classList.toggle("on",flipped);if(flipped)$("#fa").hidden=false}
+  function rate(ok){
+    const b=S.boxes[item.id]||1;S.boxes[item.id]=ok?Math.min(5,b+1):1;mark(item.id,ok);done++;show();
+  }
+  cleanup=keyHandler(e=>{
+    if(e.key===" "||e.key==="Enter"){if(e.target.closest("button,input")&&e.target.id!=="fl")return;e.preventDefault();flip()}
+    else if(flipped&&e.key==="1")rate(false);else if(flipped&&e.key==="2")rate(true);
+  });
+  show();
+}
+
+/* ================= BATALHA ================= */
+const eyes=(x,y,g=14)=>`<g><circle cx="${x}" cy="${y}" r="7" fill="#fff"/><circle cx="${x+g}" cy="${y}" r="7" fill="#fff"/><circle cx="${x+2}" cy="${y+1}" r="3.2" fill="#111"/><circle cx="${x+g+2}" cy="${y+1}" r="3.2" fill="#111"/><path d="M${x-5} ${y-10} l10 4 M${x+g+5} ${y-10} l-10 4" stroke="#111" stroke-width="2.5" stroke-linecap="round"/></g>`;
+const BOSSES=[
+ {name:"<em>Treponema pallidum</em>",hp:60,atk:20,svg:`<svg viewBox="0 0 160 160"><path d="M10 90 q12 -36 24 0 t24 0 t24 0 t24 0 t24 0 t24 0" fill="none" stroke="#7a9a3a" stroke-width="13" stroke-linecap="round"/><path d="M10 90 q12 -36 24 0 t24 0 t24 0 t24 0 t24 0 t24 0" fill="none" stroke="#b7d468" stroke-width="5" stroke-linecap="round"/>${eyes(126,62)}</svg>`},
+ {name:"<em>Toxoplasma gondii</em>",hp:80,atk:22,svg:`<svg viewBox="0 0 160 160"><path d="M22 120 C 20 50, 110 18, 146 52 C 120 44, 66 64, 22 120 Z" fill="#c9716b"/><path d="M30 112 C 34 62, 96 36, 132 52" fill="none" stroke="#f0aaa2" stroke-width="5" stroke-linecap="round"/><circle cx="70" cy="70" r="10" fill="#8f3e3a"/>${eyes(96,48,12)}</svg>`},
+ {name:"<em>Candida albicans</em>",hp:95,atk:24,svg:`<svg viewBox="0 0 160 160"><ellipse cx="72" cy="92" rx="48" ry="42" fill="#e9d8a6"/><ellipse cx="128" cy="56" rx="22" ry="20" fill="#e9d8a6"/><path d="M28 120 q-10 18 -24 22 M44 130 q0 18 -10 26" stroke="#c9b57a" stroke-width="7" fill="none" stroke-linecap="round"/><ellipse cx="72" cy="92" rx="48" ry="42" fill="none" stroke="#c9b57a" stroke-width="4"/>${eyes(56,84,20)}<path d="M62 110 q10 8 20 0" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`},
+ {name:"Citomegalovírus",hp:110,atk:26,svg:`<svg viewBox="0 0 160 160">${Array.from({length:12},(_,i)=>{const a=i*Math.PI/6,x=80+Math.cos(a)*62,y=80+Math.sin(a)*62;return `<line x1="80" y1="80" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#7d6bb8" stroke-width="4"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6" fill="#a998e0"/>`}).join("")}<circle cx="80" cy="80" r="50" fill="#8c79cc"/><polygon points="80,44 111,62 111,98 80,116 49,98 49,62" fill="#6b58ad"/>${eyes(66,76)}</svg>`},
+ {name:"HIV-1",hp:140,atk:30,svg:`<svg viewBox="0 0 160 160">${Array.from({length:14},(_,i)=>{const a=i*Math.PI/7,x=80+Math.cos(a)*64,y=80+Math.sin(a)*64;return `<line x1="${(80+Math.cos(a)*50).toFixed(1)}" y1="${(80+Math.sin(a)*50).toFixed(1)}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#c0392b" stroke-width="4"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#e8705f"/>`}).join("")}<circle cx="80" cy="80" r="52" fill="#d9534f"/><path d="M66 56 L94 56 L100 104 L60 104 Z" fill="#8e2a25"/>${eyes(64,74,18)}</svg>`}
+];
+const HERO=`<svg viewBox="0 0 160 160"><circle cx="80" cy="88" r="52" fill="var(--tmb-soft)" stroke="var(--tmb)" stroke-width="4"/><circle cx="96" cy="96" r="20" fill="var(--tmb)" opacity=".35"/>${[0,1,2,3].map(i=>`<path d="M${40+i*8} ${70+i*14} q30 -6 60 0" stroke="var(--tmb)" stroke-width="2.5" fill="none" opacity=".5"/>`).join("")}<g transform="translate(100 18) rotate(20)"><path d="M10 40 V22 L0 6 M10 22 L20 6" stroke="var(--stop)" stroke-width="6" stroke-linecap="round" fill="none"/></g><circle cx="64" cy="80" r="5" fill="var(--ink)"/><circle cx="88" cy="80" r="5" fill="var(--ink)"/><path d="M68 96 q8 8 16 0" stroke="var(--ink)" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+function startBattle(){
+  const P=pool();
+  const st={boss:0,php:100,ehp:BOSSES[0].hp,queue:pickWeighted(P,P.length),qi:0,right:0,wrong:[]};
+  const T=15;
+  view(`${topbar("Batalha · resposta humoral")}
+    <div class="arena" id="ar">
+      <span class="stage" id="sg"></span>
+      <div class="fighter"><div class="sprite bob" id="me">${HERO}</div><div class="name">Plasmócito</div><div class="hp"><i id="php"></i></div><div class="hpn" id="phpn"></div></div>
+      <div class="fighter"><div class="sprite bob" id="en"></div><div class="name" id="enn"></div><div class="hp"><i id="ehp"></i></div><div class="hpn" id="ehpn"></div></div>
+    </div>
+    <div class="timer"><i id="tm" style="width:100%"></i></div>
+    <div id="qa"></div>`);
+  let tick=null,cur=null,left=T;
+  const stop=()=>{clearInterval(tick);tick=null};
+  const unkey=keyHandler(e=>{if(!cur)return;if(!cur.isDone()&&/^[1-4]$/.test(e.key))cur.answer(+e.key-1);else if(cur.isDone()&&(e.key==="Enter"||e.key===" ")){e.preventDefault();$("#nx")?.click()}});
+  cleanup=()=>{stop();unkey()};
+  const B=()=>BOSSES[st.boss];
+  function bar(el,v,max){const p=Math.max(0,v/max*100);el.style.width=p+"%";el.className=p<30?"low":p<60?"mid":""}
+  function hud(){
+    $("#sg").textContent=`Patógeno ${st.boss+1}/${BOSSES.length}`;
+    $("#en").innerHTML=B().svg;$("#enn").innerHTML=B().name;
+    bar($("#php"),st.php,100);$("#phpn").textContent=`${Math.max(0,st.php)} / 100`;
+    bar($("#ehp"),st.ehp,B().hp);$("#ehpn").textContent=`${Math.max(0,st.ehp)} / ${B().hp}`;
+  }
+  function fx(cls,txt,side,color){
+    const ar=$("#ar");const s=document.createElement("span");s.className=cls;s.textContent=txt;ar.appendChild(s);setTimeout(()=>s.remove(),600);
+    const f=document.createElement("span");f.className="float";f.style.color=color;f.style[side]="22%";f.style.top="20%";f.textContent=side==="right"?`−${arguments[4]}`:`−${arguments[4]}`;
+    setTimeout(()=>{ar.appendChild(f);const t=side==="right"?$("#en"):$("#me");t.classList.remove("hit");void t.offsetWidth;t.classList.add("hit");setTimeout(()=>f.remove(),900)},380);
+  }
+  function next(){
+    hud();
+    if(st.qi>=st.queue.length){st.queue=pickWeighted(P,P.length);st.qi=0}
+    const item=st.queue[st.qi++];left=T;
+    const tb=$("#tm");tb.style.width="100%";tb.classList.remove("low");
+    cur=renderQ($("#qa"),item,{meta:`${Math.round(left)}s · rápido = crítico`,onAnswer:(ok)=>{
+      stop();let msg="";
+      if(ok){st.right++;const crit=left>T-6;const dmg=crit?32:20;st.ehp-=dmg;fx("shot","Y","right","var(--tmb)",dmg);msg=crit?`Crítico! ${dmg} de dano.`:`${dmg} de dano.`}
+      else{st.wrong.push(item);const d=B().atk;st.php-=d;fx("zap","✸","left","var(--bad)",d);msg=`O patógeno te acertou: −${d} de vida.`}
+      setTimeout(hud,420);
+      let label="Próxima",after=next;
+      if(st.php<=0){label="Ver resultado";after=()=>end(false)}
+      else if(st.ehp<=0){if(st.boss===BOSSES.length-1){label="Ver resultado";after=()=>end(true)}else{label="Próximo patógeno";msg+=` ${B().name.replace(/<[^>]+>/g,"")} eliminado! +20 de vida.`;after=()=>{st.boss++;st.ehp=B().hp;st.php=Math.min(100,st.php+20);next()}}}
+      $("#after").insertAdjacentHTML("beforeend",`<p class="hint" style="margin-top:10px">${msg}</p><div class="actions"><button class="btn" id="nx">${label} →</button></div>`);
+      $("#nx").onclick=after;$("#nx").focus({preventScroll:true});
+    }});
+    tick=setInterval(()=>{left-=.1;tb.style.width=Math.max(0,left/T*100)+"%";if(left<5)tb.classList.add("low");if(left<=0){stop();cur.answer(-1)}},100);
+  }
+  function end(win){
+    stop();
+    const defeated=win?BOSSES.length:st.boss;
+    const rec=defeated>(S.best.battle||0);if(rec){S.best.battle=defeated;save()}
+    $(".timer").hidden=true;
+    $("#qa").innerHTML=`<div class="card result">
+      <div class="label">${win?"Infecção controlada":"Você foi derrotado"}</div>
+      <h2>${win?"Todos os patógenos eliminados!":`Parou no patógeno ${st.boss+1}`}</h2>
+      <div class="big">${defeated}/5</div><div class="label">derrotados · ${st.right} acertos</div>
+      ${rec&&defeated>0?`<p><span class="new">Novo recorde!</span></p>`:""}
+      ${st.wrong.length?`<div class="review"><span class="label">Para revisar</span>${st.wrong.map(w=>`<div><p>${esc(w.q)}</p><p>→ ${esc(w.o[0])}</p></div>`).join("")}</div>`:""}
+      <div class="actions" style="justify-content:center"><button class="btn ghost" data-go="home">Início</button><button class="btn" data-go="battle">Lutar de novo</button></div></div>`;
+  }
+  next();
+}
+
+home();
+</script>
+
+</body>
+</html>
